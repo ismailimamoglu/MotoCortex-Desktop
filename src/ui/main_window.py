@@ -124,7 +124,8 @@ class MainWindow(QMainWindow):
 
             self.log_output.append(f">>> Attempting to connect to {port}...")
             
-            if self.ecu.connect(port):
+            success, msg = self.ecu.connect(port)
+            if success:
                 self.log_output.append(f">>> [SUCCESS] Link established on {port}.")
                 # Update UI for connected state
                 self.btn_connect.setText("DISCONNECT")
@@ -137,7 +138,7 @@ class MainWindow(QMainWindow):
                 self.btn_flash.setEnabled(True)
                 self.combo_ports.setEnabled(False)
             else:
-                self.log_output.append(f">>> [ERROR] Connection failed. Port might be in use.")
+                self.log_output.append(f">>> {msg}")
         else:
             # Disconnect
             self.ecu.disconnect()
