@@ -1,10 +1,11 @@
 import logging
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QLabel, QTextEdit, QGroupBox, QGridLayout
+    QPushButton, QLabel, QTextEdit, QGroupBox, QGridLayout, QComboBox
 )
 from PyQt6.QtCore import Qt
 from ui.styles import INDUSTRIAL_DARK_THEME
+from core.serial_connection import ECUConnection
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,10 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1024, 768)
         self.setStyleSheet(INDUSTRIAL_DARK_THEME)
         
+        self.ecu = ECUConnection()
+        
         self.init_ui()
+        self.refresh_ports()
         logger.info("Main Window Initialized.")
 
     def init_ui(self):
@@ -49,12 +53,29 @@ class MainWindow(QMainWindow):
         control_group = QGroupBox("Hardware Controls")
         control_layout = QVBoxLayout()
         
+        # Port Selection Area
+        port_layout = QHBoxLayout()
+        self.combo_ports = QComboBox()
+        self.combo_ports.setMinimumHeight(40)
+        
+        self.btn_refresh_ports = QPushButton("↻")
+        self.btn_refresh_ports.setMinimumHeight(40)
+        self.btn_refresh_ports.setMaximumWidth(60)
+        self.btn_refresh_ports.clicked.connect(self.refresh_ports)
+        
+        port_layout.addWidget(self.combo_ports)
+        port_layout.addWidget(self.btn_refresh_ports)
+        
         self.btn_connect = QPushButton("CONNECT TO ECU")
         self.btn_connect.clicked.connect(self.handle_connect)
         
         self.btn_read = QPushButton("READ PARAMETERS")
+        self.btn_read.setEnabled(False)
         self.btn_flash = QPushButton("FLASH FIRMWARE (BIN/HEX)")
+        self.btn_flash.setEnabled(False)
         
+        control_layout.addLayout(port_layout)
+        control_layout.addSpacing(10)
         control_layout.addWidget(self.btn_connect)
         control_layout.addSpacing(20)
         control_layout.addWidget(self.btn_read)
@@ -81,8 +102,59 @@ class MainWindow(QMainWindow):
         # Add grid to main layout
         main_layout.addLayout(content_layout)
 
+    def refresh_ports(self):
+        """Scan for available serial ports and populate the combo box."""
+        self.combo_ports.clear()
+        ports = self.ecu.list_available_ports()
+        if not ports:
+            self.combo_ports.addItem("No COM ports found")
+            self.log_output.append(">>> [WARN] No active COM ports detected on the system.")
+        else:
+            for device, description in ports:
+                self.combo_ports.addItem(f"{device} - {description}", device)
+            self.log_output.append(f">>> Found {len(ports)} COM port(s).")
+
     def handle_connect(self):
-        # Stub for connection logic
-        logger.info("Connection button pressed.")
-        self.log_output.append(">>> Attempting to establish serial connection...")
-        # In a real scenario, this will interact with core/serial_connection.py
+        """Toggle connection to the selected serial port."""
+        if self.btn_connect.text() == "CONNECT TO ECU":
+            port = self.combo_ports.currentData()
+            if not port:
+                self.log_output.append(">>> [ERROR] Valid COM port must be selected.")
+                return
+
+            self.log_output.append(f">>> Attempting to connect to {port}...")
+            
+            if self.ecu.connect(port):
+                self.log_output.append(f">>> [SUCCESS] Link established on {port}.")
+                # Update UI for connected state
+                self.btn_connect.setText("DISCONNECT")
+                self.btn_connect.setStyleSheet("background-color: #00A8FF; color: black;")
+                self.connection_status.setText(f"STATUS: CONNECTED ({port})")
+                self.connection_status.setObjectName("status_ok")
+                
+                # Unblock operations
+                self.btn_read.setEnabled(True)
+                self.btn_flash.setEnabled(True)
+                self.combo_ports.setEnabled(False)
+            else:
+                self.log_output.append(f">>> [ERROR] Connection failed. Port might be in use.")
+        else:
+            # Disconnect
+            self.ecu.disconnect()
+            self.log_output.append(">>> Link disconnected.")
+            
+            # Update UI for disconnected state
+            self.btn_connect.setText("CONNECT TO ECU")
+            self.btn_connect.setStyleSheet("") # Revert to default stylesheet
+            self.connection_status.setText("STATUS: DISCONNECTED")
+            self.connection_status.setObjectName("status_error")
+            
+            # Block operations
+            self.btn_read.setEnabled(False)
+            self.btn_flash.setEnabled(False)
+            self.combo_ports.setEnabled(True)
+            
+        # Refresh stylesheet to apply objectName changes dynamically
+        self.connection_status.style().unpolish(self.connection_status)
+        self.connection_status.style().polish(self.connection_status)
+
