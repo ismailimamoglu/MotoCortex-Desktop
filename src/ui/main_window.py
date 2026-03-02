@@ -2,11 +2,12 @@ import logging
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QPushButton, QLabel, QTextEdit, QGroupBox, QGridLayout, QComboBox,
-    QTabWidget, QTableWidget, QHeaderView
+    QTabWidget, QTableWidget, QHeaderView, QTableWidgetItem
 )
 from PyQt6.QtCore import Qt
 from ui.styles import INDUSTRIAL_DARK_THEME
 from core.serial_connection import ECUConnection
+from core.protocol_manager import ProtocolManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(INDUSTRIAL_DARK_THEME)
         
         self.ecu = ECUConnection()
+        self.protocol = ProtocolManager()
         
         self.init_ui()
         self.refresh_ports()
@@ -136,6 +138,7 @@ class MainWindow(QMainWindow):
         
         self.btn_read_dtc = QPushButton("Arıza Kodu (DTC) Oku")
         self.btn_read_dtc.setEnabled(False)
+        self.btn_read_dtc.clicked.connect(self.handle_read_dtc)
         self.btn_clear_dtc = QPushButton("Arıza Kodu Sil")
         self.btn_clear_dtc.setEnabled(False)
         
@@ -151,7 +154,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(live_data_label)
         
         self.table_live_data = QTableWidget(5, 2)
-        self.table_live_data.setHorizontalHeaderLabels(["Parameter", "Value"])
+        self.table_live_data.setHorizontalHeaderLabels(["DTC Kodu", "Açıklama"])
         self.table_live_data.horizontalHeader().setStretchLastSection(True)
         self.table_live_data.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_live_data.setStyleSheet("""
@@ -289,4 +292,22 @@ class MainWindow(QMainWindow):
         # Refresh stylesheet to apply objectName changes dynamically
         self.connection_status.style().unpolish(self.connection_status)
         self.connection_status.style().polish(self.connection_status)
+
+    def handle_read_dtc(self):
+        """Handle the Read DTC button click by querying the ProtocolManager."""
+        self.log_output.append(">>> Querying ECU for Diagnostic Trouble Codes...")
+        dtcs = self.protocol.get_mock_dtc()
+        
+        self.table_live_data.setRowCount(len(dtcs))
+        for row, dtc in enumerate(dtcs):
+            code_item = QTableWidgetItem(dtc["code"])
+            code_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            
+            desc_item = QTableWidgetItem(dtc["description"])
+            desc_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            
+            self.table_live_data.setItem(row, 0, code_item)
+            self.table_live_data.setItem(row, 1, desc_item)
+            
+        self.log_output.append(f">>> Fetched {len(dtcs)} DTC(s) from ECU.")
 

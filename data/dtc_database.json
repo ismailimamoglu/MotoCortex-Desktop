@@ -1,0 +1,36 @@
+{
+    "dtc_list": [
+        {
+            "code": "P0107",
+            "description": "Manifold Mutlak Basınç (MAP) Sensörü Düşük Voltaj Girdisi"
+        },
+        {
+            "code": "P0117",
+            "description": "Motor Soğutma Suyu Sıcaklık (ECT) Sensörü Düşük Voltaj"
+        },
+        {
+            "code": "P0122",
+            "description": "Gaz Kelebeği Konum (TP) Sensörü Düşük Voltaj"
+        },
+        {
+            "code": "P0217",
+            "description": "Motor Aşırı Isınma Durumu"
+        },
+        {
+            "code": "P0335",
+            "description": "Krank Mili Konum Sensörü A Devresi Arızası"
+        },
+        {
+            "code": "P0562",
+            "description": "Sistem Voltajı Düşük"
+        },
+        {
+            "code": "P0601",
+            "description": "Dahili Kontrol Modülü Belleği Checksum Hatası"
+        },
+        {
+            "code": "U0100",
+            "description": "Motor Kontrol Modülü (ECM) İle İletişim Kaybı"
+        }
+    ]
+}
