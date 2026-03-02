@@ -45,3 +45,15 @@ class ProtocolManager:
         # Return 1 or 2 random DTCs
         count = random.randint(1, 2)
         return random.sample(self.dtc_cache, count)
+
+    def get_mock_live_data(self):
+        """
+        Simulates reading live data from the ECU.
+        Returns a dictionary with realistic fluctuating values.
+        """
+        return {
+            "Motor Devri (RPM)": random.randint(1500, 8000),
+            "Soğutma Sıvısı (°C)": random.randint(80, 105),
+            "Akü Voltajı (V)": round(random.uniform(13.5, 14.4), 1),
+            "Gaz Kelebeği (TPS) (%)": random.randint(0, 100)
+        }

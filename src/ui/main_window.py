@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel, QTextEdit, QGroupBox, QGridLayout, QComboBox,
     QTabWidget, QTableWidget, QHeaderView, QTableWidgetItem
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from ui.styles import INDUSTRIAL_DARK_THEME
 from core.serial_connection import ECUConnection
 from core.protocol_manager import ProtocolManager
@@ -20,6 +20,9 @@ class MainWindow(QMainWindow):
         
         self.ecu = ECUConnection()
         self.protocol = ProtocolManager()
+        
+        self.live_data_timer = QTimer(self)
+        self.live_data_timer.timeout.connect(self.update_live_data)
         
         self.init_ui()
         self.refresh_ports()
@@ -149,9 +152,20 @@ class MainWindow(QMainWindow):
         
         layout.addSpacing(10)
         
+        live_data_layout = QHBoxLayout()
         live_data_label = QLabel("Canlı Veri İzleme (Live Data Monitoring):")
         live_data_label.setStyleSheet("font-weight: bold; color: #E0E0E0; font-size: 14pt;")
-        layout.addWidget(live_data_label)
+        
+        self.btn_live_data = QPushButton("Canlı Veriyi Başlat")
+        self.btn_live_data.setCheckable(True)
+        self.btn_live_data.setEnabled(False)
+        self.btn_live_data.clicked.connect(self.toggle_live_data)
+        
+        live_data_layout.addWidget(live_data_label)
+        live_data_layout.addStretch()
+        live_data_layout.addWidget(self.btn_live_data)
+        
+        layout.addLayout(live_data_layout)
         
         self.table_live_data = QTableWidget(5, 2)
         self.table_live_data.setHorizontalHeaderLabels(["DTC Kodu", "Açıklama"])
@@ -228,6 +242,7 @@ class MainWindow(QMainWindow):
         """Enable or disable all tab specific buttons based on connection state"""
         self.btn_read_dtc.setEnabled(connected)
         self.btn_clear_dtc.setEnabled(connected)
+        self.btn_live_data.setEnabled(connected)
         self.table_live_data.setEnabled(connected)
         
         self.btn_read_km.setEnabled(connected)
@@ -286,6 +301,10 @@ class MainWindow(QMainWindow):
             self.ecu.disconnect()
             self.log_output.append(">>> Link disconnected.")
             
+            if self.live_data_timer.isActive():
+                self.btn_live_data.setChecked(False)
+                self.toggle_live_data(False)
+            
             # Update UI for disconnected state
             self.btn_connect.setText("CONNECT TO ECU")
             self.btn_connect.setStyleSheet("") # Revert to default stylesheet
@@ -305,6 +324,11 @@ class MainWindow(QMainWindow):
         self.log_output.append(">>> Querying ECU for Diagnostic Trouble Codes...")
         dtcs = self.protocol.get_mock_dtc()
         
+        if self.live_data_timer.isActive():
+            self.btn_live_data.setChecked(False)
+            self.toggle_live_data(False)
+
+        self.table_live_data.setHorizontalHeaderLabels(["DTC Kodu", "Açıklama"])
         self.table_live_data.setRowCount(len(dtcs))
         for row, dtc in enumerate(dtcs):
             code_item = QTableWidgetItem(dtc["code"])
@@ -318,3 +342,32 @@ class MainWindow(QMainWindow):
             
         self.log_output.append(f">>> Fetched {len(dtcs)} DTC(s) from ECU.")
 
+    def toggle_live_data(self, checked):
+        if checked:
+            self.btn_live_data.setText("Durdur")
+            self.btn_live_data.setStyleSheet("background-color: #8B0000; color: white;")
+            
+            self.table_live_data.setHorizontalHeaderLabels(["Parametre", "Değer"])
+            self.log_output.append(">>> Canlı Veri İzleme Başlatıldı...")
+            self.update_live_data()
+            self.live_data_timer.start(1000)
+        else:
+            self.btn_live_data.setText("Canlı Veriyi Başlat")
+            self.btn_live_data.setStyleSheet("")
+            
+            self.live_data_timer.stop()
+            self.log_output.append(">>> Canlı Veri İzleme Durduruldu.")
+
+    def update_live_data(self):
+        data = self.protocol.get_mock_live_data()
+        
+        self.table_live_data.setRowCount(len(data))
+        for row, (param, value) in enumerate(data.items()):
+            param_item = QTableWidgetItem(param)
+            param_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            
+            value_item = QTableWidgetItem(str(value))
+            value_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+            
+            self.table_live_data.setItem(row, 0, param_item)
+            self.table_live_data.setItem(row, 1, value_item)
