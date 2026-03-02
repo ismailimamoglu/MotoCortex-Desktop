@@ -241,10 +241,13 @@ class MainWindow(QMainWindow):
     def refresh_ports(self):
         """Scan for available serial ports and populate the combo box."""
         self.combo_ports.clear()
+        
+        # Always add the simulator option at the top
+        self.combo_ports.addItem("SIMULATOR - MOCK ECU", "SIMULATOR")
+        
         ports = self.ecu.list_available_ports()
         if not ports:
-            self.combo_ports.addItem("No COM ports found")
-            self.log_output.append(">>> [WARN] No active COM ports detected on the system.")
+            self.log_output.append(">>> [INFO] Serial scanning done. Only Simulator available.")
         else:
             for device, description in ports:
                 self.combo_ports.addItem(f"{device} - {description}", device)
@@ -262,7 +265,11 @@ class MainWindow(QMainWindow):
             
             success, msg = self.ecu.connect(port)
             if success:
-                self.log_output.append(f">>> [SUCCESS] Link established on {port}.")
+                if port == "SIMULATOR":
+                    self.log_output.append(">>> [INFO] Simulation Mode Engaged. No physical hardware required.")
+                else:
+                    self.log_output.append(f">>> [SUCCESS] Link established on {port}.")
+                
                 # Update UI for connected state
                 self.btn_connect.setText("DISCONNECT")
                 self.btn_connect.setStyleSheet("background-color: #00A8FF; color: black;")

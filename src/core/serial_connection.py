@@ -14,6 +14,7 @@ class ECUConnection:
         self.timeout = timeout
         self.connection = None
         self.port = None
+        self.is_simulator = False
 
     @staticmethod
     def list_available_ports():
@@ -43,6 +44,13 @@ class ECUConnection:
         if self.connection and self.connection.is_open:
             self.disconnect()
 
+        self.port = port
+        if port == "SIMULATOR":
+            self.is_simulator = True
+            logger.info("Simulation mode engaged. No physical hardware required.")
+            return True, ""
+            
+        self.is_simulator = False
         try:
             self.connection = serial.Serial(
                 port=port,
@@ -53,7 +61,6 @@ class ECUConnection:
                 stopbits=serial.STOPBITS_ONE,
                 write_timeout=self.timeout
             )
-            self.port = port
             logger.info(f"Successfully connected to {port} at {self.baudrate} baud.")
             return True, ""
             
@@ -69,8 +76,12 @@ class ECUConnection:
             self.connection = None
             return False, error_msg
 
-    def disconnect(self):
-        """Safely close the serial connection with try/except in case the cable was yanked."""
+        if self.is_simulator:
+            logger.info("Simulator mode disengaged.")
+            self.is_simulator = False
+            self.port = None
+            return
+
         if self.connection:
             try:
                 if self.connection.is_open:
