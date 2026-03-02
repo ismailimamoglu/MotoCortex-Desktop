@@ -1,7 +1,8 @@
 import logging
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QPushButton, QLabel, QTextEdit, QGroupBox, QGridLayout, QComboBox
+    QPushButton, QLabel, QTextEdit, QGroupBox, QGridLayout, QComboBox,
+    QTabWidget, QTableWidget, QHeaderView
 )
 from PyQt6.QtCore import Qt
 from ui.styles import INDUSTRIAL_DARK_THEME
@@ -32,62 +33,89 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
 
-        # Header Row
-        header_layout = QHBoxLayout()
-        title_label = QLabel("MotoCortex ECU Diagnostics")
-        title_label.setObjectName("title_label")
-        
-        self.connection_status = QLabel("STATUS: DISCONNECTED")
-        self.connection_status.setObjectName("status_error")
-        self.connection_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        
-        header_layout.addWidget(title_label)
-        header_layout.addStretch()
-        header_layout.addWidget(self.connection_status)
-        main_layout.addLayout(header_layout)
-
-        # Content Grid
-        content_layout = QGridLayout()
-        
-        # Left Panel - Controls
-        control_group = QGroupBox("Hardware Controls")
-        control_layout = QVBoxLayout()
+        # Header Row - Global Connection Panel
+        header_group = QGroupBox("Global Connection Panel")
+        header_inner_layout = QHBoxLayout()
+        header_inner_layout.setContentsMargins(15, 15, 15, 15)
         
         # Port Selection Area
-        port_layout = QHBoxLayout()
         self.combo_ports = QComboBox()
         self.combo_ports.setMinimumHeight(40)
+        self.combo_ports.setMinimumWidth(250)
         
         self.btn_refresh_ports = QPushButton("↻")
         self.btn_refresh_ports.setMinimumHeight(40)
         self.btn_refresh_ports.setMaximumWidth(60)
         self.btn_refresh_ports.clicked.connect(self.refresh_ports)
         
-        port_layout.addWidget(self.combo_ports)
-        port_layout.addWidget(self.btn_refresh_ports)
-        
         self.btn_connect = QPushButton("CONNECT TO ECU")
+        self.btn_connect.setMinimumWidth(200)
         self.btn_connect.clicked.connect(self.handle_connect)
         
-        self.btn_read = QPushButton("READ PARAMETERS")
-        self.btn_read.setEnabled(False)
-        self.btn_flash = QPushButton("FLASH FIRMWARE (BIN/HEX)")
-        self.btn_flash.setEnabled(False)
+        self.connection_status = QLabel("STATUS: DISCONNECTED")
+        self.connection_status.setObjectName("status_error")
+        self.connection_status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         
-        control_layout.addLayout(port_layout)
-        control_layout.addSpacing(10)
-        control_layout.addWidget(self.btn_connect)
-        control_layout.addSpacing(20)
-        control_layout.addWidget(self.btn_read)
-        control_layout.addWidget(self.btn_flash)
-        control_layout.addStretch()
+        header_inner_layout.addWidget(self.combo_ports)
+        header_inner_layout.addWidget(self.btn_refresh_ports)
+        header_inner_layout.addSpacing(20)
+        header_inner_layout.addWidget(self.btn_connect)
+        header_inner_layout.addStretch()
+        header_inner_layout.addWidget(self.connection_status)
         
-        control_group.setLayout(control_layout)
-        content_layout.addWidget(control_group, 0, 0, 1, 1)
+        header_group.setLayout(header_inner_layout)
+        main_layout.addWidget(header_group)
 
+        # Content Split Layout (Tabs on Left, Log on Right)
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(15)
+        
+        # Left Panel - Tabs
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet("""
+            QTabBar::tab {
+                padding: 12px 20px;
+                font-weight: bold;
+                font-size: 14pt;
+                background-color: #2b2b2b;
+                color: #FFFFFF;
+                border: 2px solid #555555;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3f3f3f;
+                border-color: #00A8FF;
+                border-bottom-color: transparent; 
+            }
+            QTabWidget::pane {
+                border: 2px solid #555555;
+                background-color: #1a1a1a;
+                border-radius: 6px;
+                padding: 10px;
+                top: -2px;
+            }
+        """)
+        
+        self.tab_diagnostics = QWidget()
+        self.tab_advanced = QWidget()
+        self.tab_tuning = QWidget()
+        
+        self.tabs.addTab(self.tab_diagnostics, "Diagnostics")
+        self.tabs.addTab(self.tab_advanced, "Advanced Functions")
+        self.tabs.addTab(self.tab_tuning, "Tuning & Flashing")
+        
+        self.setup_diagnostics_tab()
+        self.setup_advanced_tab()
+        self.setup_tuning_tab()
+        
+        content_layout.addWidget(self.tabs, stretch=1)
+        
         # Right Panel - Log Output
         log_group = QGroupBox("Serial Monitor / Telemetry Data")
         log_layout = QVBoxLayout()
+        log_layout.setContentsMargins(10, 15, 10, 10)
         
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
@@ -97,10 +125,115 @@ class MainWindow(QMainWindow):
         log_layout.addWidget(self.log_output)
         log_group.setLayout(log_layout)
         
-        content_layout.addWidget(log_group, 0, 1, 1, 3)
+        content_layout.addWidget(log_group, stretch=1)
         
-        # Add grid to main layout
-        main_layout.addLayout(content_layout)
+        # Add split layout to main layout
+        main_layout.addLayout(content_layout, stretch=1)
+
+    def setup_diagnostics_tab(self):
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        
+        self.btn_read_dtc = QPushButton("Arıza Kodu (DTC) Oku")
+        self.btn_read_dtc.setEnabled(False)
+        self.btn_clear_dtc = QPushButton("Arıza Kodu Sil")
+        self.btn_clear_dtc.setEnabled(False)
+        
+        dtc_layout = QHBoxLayout()
+        dtc_layout.addWidget(self.btn_read_dtc)
+        dtc_layout.addWidget(self.btn_clear_dtc)
+        layout.addLayout(dtc_layout)
+        
+        layout.addSpacing(10)
+        
+        live_data_label = QLabel("Canlı Veri İzleme (Live Data Monitoring):")
+        live_data_label.setStyleSheet("font-weight: bold; color: #E0E0E0; font-size: 14pt;")
+        layout.addWidget(live_data_label)
+        
+        self.table_live_data = QTableWidget(5, 2)
+        self.table_live_data.setHorizontalHeaderLabels(["Parameter", "Value"])
+        self.table_live_data.horizontalHeader().setStretchLastSection(True)
+        self.table_live_data.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table_live_data.setStyleSheet("""
+            QTableWidget {
+                background-color: #2b2b2b; 
+                color: #FFFFFF;
+                gridline-color: #555555;
+                font-size: 13pt;
+            }
+            QHeaderView::section {
+                background-color: #3f3f3f;
+                padding: 5px;
+                border: 1px solid #555555;
+                font-weight: bold;
+            }
+        """)
+        self.table_live_data.setEnabled(False)
+        layout.addWidget(self.table_live_data)
+        
+        self.tab_diagnostics.setLayout(layout)
+
+    def setup_advanced_tab(self):
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        
+        self.btn_read_km = QPushButton("Orijinal KM Okuma")
+        self.btn_read_km.setEnabled(False)
+        self.btn_cancel_vmax = QPushButton("Hız Limiti (VMAX) İptali")
+        self.btn_cancel_vmax.setEnabled(False)
+        self.btn_cancel_immo = QPushButton("İmmobilizer (Immo) İptali")
+        self.btn_cancel_immo.setEnabled(False)
+        
+        layout.addWidget(self.btn_read_km)
+        layout.addWidget(self.btn_cancel_vmax)
+        layout.addWidget(self.btn_cancel_immo)
+        layout.addStretch()
+        
+        self.tab_advanced.setLayout(layout)
+
+    def setup_tuning_tab(self):
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        
+        warning_label = QLabel("⚠️ EN RİSKLİ BÖLGE / MOST RISKY AREA")
+        warning_label.setStyleSheet("color: #FF3333; font-weight: bold; font-size: 16pt;")
+        warning_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(warning_label)
+        
+        layout.addSpacing(10)
+        
+        self.btn_read_ecu_id = QPushButton("ECU Kimliği (ID) Oku")
+        self.btn_read_ecu_id.setEnabled(False)
+        self.btn_read_map = QPushButton("Mevcut Haritayı İndir (Read BIN/HEX)")
+        self.btn_read_map.setEnabled(False)
+        self.btn_write_map = QPushButton("Chip Tuning / Yeni Harita Yükle (Write Flash)")
+        self.btn_write_map.setStyleSheet("""
+            QPushButton { background-color: #8B0000; color: white; border-color: #FF0000; }
+            QPushButton:hover { background-color: #A52A2A; border-color: #FF3333; }
+            QPushButton:disabled { background-color: #4A1010; color: #888888; border-color: #555555; }
+        """)
+        self.btn_write_map.setEnabled(False)
+        
+        layout.addWidget(self.btn_read_ecu_id)
+        layout.addWidget(self.btn_read_map)
+        layout.addWidget(self.btn_write_map)
+        layout.addStretch()
+        
+        self.tab_tuning.setLayout(layout)
+
+    def update_tab_buttons_state(self, connected):
+        """Enable or disable all tab specific buttons based on connection state"""
+        self.btn_read_dtc.setEnabled(connected)
+        self.btn_clear_dtc.setEnabled(connected)
+        self.table_live_data.setEnabled(connected)
+        
+        self.btn_read_km.setEnabled(connected)
+        self.btn_cancel_vmax.setEnabled(connected)
+        self.btn_cancel_immo.setEnabled(connected)
+        
+        self.btn_read_ecu_id.setEnabled(connected)
+        self.btn_read_map.setEnabled(connected)
+        self.btn_write_map.setEnabled(connected)
 
     def refresh_ports(self):
         """Scan for available serial ports and populate the combo box."""
@@ -134,8 +267,7 @@ class MainWindow(QMainWindow):
                 self.connection_status.setObjectName("status_ok")
                 
                 # Unblock operations
-                self.btn_read.setEnabled(True)
-                self.btn_flash.setEnabled(True)
+                self.update_tab_buttons_state(True)
                 self.combo_ports.setEnabled(False)
             else:
                 self.log_output.append(f">>> {msg}")
@@ -151,8 +283,7 @@ class MainWindow(QMainWindow):
             self.connection_status.setObjectName("status_error")
             
             # Block operations
-            self.btn_read.setEnabled(False)
-            self.btn_flash.setEnabled(False)
+            self.update_tab_buttons_state(False)
             self.combo_ports.setEnabled(True)
             
         # Refresh stylesheet to apply objectName changes dynamically
