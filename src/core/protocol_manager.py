@@ -55,14 +55,16 @@ class ProtocolManager:
             return self.get_mock_dtc()
             
         if not self.ecu.connection or not self.ecu.connection.is_open:
-            return None
+            raise Exception("Port kapalı veya bağlı değil.")
             
+        raw_response = b""
         try:
-            self.ecu.connection.write(b'D')
-            response = self.ecu.connection.readline().decode('ascii', errors='ignore').strip()
+            self.ecu.connection.write(b'D\n')
+            raw_response = self.ecu.connection.readline()
+            response = raw_response.decode('ascii', errors='ignore').strip()
             
             if not response:
-                return None
+                raise ValueError("Boş yanıt alındı (Timeout)")
                 
             if response.startswith("D,"):
                 parts = response.split(",")[1:]
@@ -80,10 +82,11 @@ class ProtocolManager:
                 if not result:
                      return [{"code": "OK", "description": "Arıza Kodu Bulunmadı"}]
                 return result
-            return None
+            raise ValueError("Beklenmeyen veri formatı")
         except Exception as e:
-            logger.error(f"DTC okuma hatası: {e}")
-            return None
+            error_msg = f"ECU Timeout veya Hatalı Veri | Detay: {str(e)} | Ham Veri: {raw_response}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
 
     def get_mock_live_data(self):
         """
@@ -105,14 +108,16 @@ class ProtocolManager:
             return self.get_mock_live_data()
             
         if not self.ecu.connection or not self.ecu.connection.is_open:
-            return None
+            raise Exception("Port kapalı veya bağlı değil.")
             
+        raw_response = b""
         try:
-            self.ecu.connection.write(b'L')
-            response = self.ecu.connection.readline().decode('ascii', errors='ignore').strip()
+            self.ecu.connection.write(b'L\n')
+            raw_response = self.ecu.connection.readline()
+            response = raw_response.decode('ascii', errors='ignore').strip()
             
             if not response:
-                return None
+                raise ValueError("Boş yanıt alındı (Timeout)")
                 
             if response.startswith("L,"):
                 parts = response.split(",")
@@ -123,7 +128,8 @@ class ProtocolManager:
                         "Akü Voltajı (V)": parts[3],
                         "Gaz Kelebeği (TPS) (%)": parts[4]
                     }
-            return None
+            raise ValueError("Beklenmeyen veri formatı veya eksik parametre")
         except Exception as e:
-            logger.error(f"Live data okuma hatası: {e}")
-            return None
+            error_msg = f"ECU Timeout veya Hatalı Veri | Detay: {str(e)} | Ham Veri: {raw_response}"
+            logger.error(error_msg)
+            raise Exception(error_msg)

@@ -1,6 +1,7 @@
 import serial
 import serial.tools.list_ports
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +53,17 @@ class ECUConnection:
             
         self.is_simulator = False
         try:
+            self.baudrate = 115200
             self.connection = serial.Serial(
                 port=port,
-                baudrate=self.baudrate,
+                baudrate=115200,
                 timeout=self.timeout,
                 bytesize=serial.EIGHTBITS,
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
                 write_timeout=self.timeout
             )
+            time.sleep(2)  # Arduino bootloader wake up delay (DTR)
             logger.info(f"Successfully connected to {port} at {self.baudrate} baud.")
             return True, ""
             

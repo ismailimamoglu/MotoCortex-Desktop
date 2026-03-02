@@ -322,10 +322,10 @@ class MainWindow(QMainWindow):
     def handle_read_dtc(self):
         """Handle the Read DTC button click by querying the ProtocolManager."""
         self.log_output.append(">>> Querying ECU for Diagnostic Trouble Codes...")
-        dtcs = self.protocol.get_dtc()
-        
-        if dtcs is None:
-            self.log_output.append(">>> [WARN] ECU Timeout veya Hatalı Veri")
+        try:
+            dtcs = self.protocol.get_dtc()
+        except Exception as e:
+            self.log_output.append(f">>> [WARN] {str(e)}")
             return
             
         if self.live_data_timer.isActive():
@@ -363,10 +363,10 @@ class MainWindow(QMainWindow):
             self.log_output.append(">>> Canlı Veri İzleme Durduruldu.")
 
     def update_live_data(self):
-        data = self.protocol.get_live_data()
-        
-        if data is None:
-            self.log_output.append(">>> [WARN] ECU Timeout veya Hatalı Veri")
+        try:
+            data = self.protocol.get_live_data()
+        except Exception as e:
+            self.log_output.append(f">>> [WARN] {str(e)}")
             return
             
         self.table_live_data.setRowCount(len(data))
