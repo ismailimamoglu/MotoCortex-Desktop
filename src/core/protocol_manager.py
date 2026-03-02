@@ -2,6 +2,7 @@ import os
 import json
 import random
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,9 @@ class ProtocolManager:
             self.ecu.connection.reset_output_buffer()
             
             self.ecu.connection.write(b'D\n')
+            self.ecu.connection.flush()
+            time.sleep(0.05)
+            
             raw_response = self.ecu.connection.readline()
             response = raw_response.decode('utf-8', errors='ignore').strip()
             
@@ -119,25 +123,26 @@ class ProtocolManager:
             self.ecu.connection.reset_output_buffer()
             
             self.ecu.connection.write(b'L\n')
+            self.ecu.connection.flush()
+            time.sleep(0.05)
+            
             raw_response = self.ecu.connection.readline()
             response = raw_response.decode('utf-8', errors='ignore').strip()
             
             if not response:
-                raise ValueError("Boş yanıt alındı (Timeout)")
+                return None
                 
-            if response.startswith("L,"):
-                parts = response.split(",")
-                if len(parts) != 5:
-                    logger.warning(f"Bozuk Paket alındı, pas geçiliyor: {response}")
-                    return None
-                    
+            parts = response.split(",")
+            if parts[0] == "L" and len(parts) == 5:
                 return {
                     "Motor Devri (RPM)": parts[1],
                     "Soğutma Sıvısı (°C)": parts[2],
                     "Akü Voltajı (V)": parts[3],
                     "Gaz Kelebeği (TPS) (%)": parts[4]
                 }
-            raise ValueError("Beklenmeyen veri formatı veya eksik parametre")
+            else:
+                logger.warning(f"Çöp paket atlandı: {response}")
+                return None
         except Exception as e:
             error_msg = f"ECU Timeout veya Hatalı Veri | Detay: {str(e)} | Ham Veri: {raw_response}"
             logger.error(error_msg)
