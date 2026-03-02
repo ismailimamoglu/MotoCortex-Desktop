@@ -19,7 +19,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(INDUSTRIAL_DARK_THEME)
         
         self.ecu = ECUConnection()
-        self.protocol = ProtocolManager()
+        self.protocol = ProtocolManager(self.ecu)
         
         self.live_data_timer = QTimer(self)
         self.live_data_timer.timeout.connect(self.update_live_data)
@@ -322,8 +322,12 @@ class MainWindow(QMainWindow):
     def handle_read_dtc(self):
         """Handle the Read DTC button click by querying the ProtocolManager."""
         self.log_output.append(">>> Querying ECU for Diagnostic Trouble Codes...")
-        dtcs = self.protocol.get_mock_dtc()
+        dtcs = self.protocol.get_dtc()
         
+        if dtcs is None:
+            self.log_output.append(">>> [WARN] ECU Timeout veya Hatalı Veri")
+            return
+            
         if self.live_data_timer.isActive():
             self.btn_live_data.setChecked(False)
             self.toggle_live_data(False)
@@ -359,8 +363,12 @@ class MainWindow(QMainWindow):
             self.log_output.append(">>> Canlı Veri İzleme Durduruldu.")
 
     def update_live_data(self):
-        data = self.protocol.get_mock_live_data()
+        data = self.protocol.get_live_data()
         
+        if data is None:
+            self.log_output.append(">>> [WARN] ECU Timeout veya Hatalı Veri")
+            return
+            
         self.table_live_data.setRowCount(len(data))
         for row, (param, value) in enumerate(data.items()):
             param_item = QTableWidgetItem(param)
