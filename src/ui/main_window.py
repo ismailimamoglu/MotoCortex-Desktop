@@ -369,6 +369,9 @@ class MainWindow(QMainWindow):
             self.log_output.append(f">>> [WARN] {str(e)}")
             return
             
+        if data is None:
+            return
+            
         self.table_live_data.setRowCount(len(data))
         for row, (param, value) in enumerate(data.items()):
             param_item = QTableWidgetItem(param)

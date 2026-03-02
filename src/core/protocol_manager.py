@@ -59,9 +59,12 @@ class ProtocolManager:
             
         raw_response = b""
         try:
+            self.ecu.connection.reset_input_buffer()
+            self.ecu.connection.reset_output_buffer()
+            
             self.ecu.connection.write(b'D\n')
             raw_response = self.ecu.connection.readline()
-            response = raw_response.decode('ascii', errors='ignore').strip()
+            response = raw_response.decode('utf-8', errors='ignore').strip()
             
             if not response:
                 raise ValueError("Boş yanıt alındı (Timeout)")
@@ -112,22 +115,28 @@ class ProtocolManager:
             
         raw_response = b""
         try:
+            self.ecu.connection.reset_input_buffer()
+            self.ecu.connection.reset_output_buffer()
+            
             self.ecu.connection.write(b'L\n')
             raw_response = self.ecu.connection.readline()
-            response = raw_response.decode('ascii', errors='ignore').strip()
+            response = raw_response.decode('utf-8', errors='ignore').strip()
             
             if not response:
                 raise ValueError("Boş yanıt alındı (Timeout)")
                 
             if response.startswith("L,"):
                 parts = response.split(",")
-                if len(parts) >= 5:
-                    return {
-                        "Motor Devri (RPM)": parts[1],
-                        "Soğutma Sıvısı (°C)": parts[2],
-                        "Akü Voltajı (V)": parts[3],
-                        "Gaz Kelebeği (TPS) (%)": parts[4]
-                    }
+                if len(parts) != 5:
+                    logger.warning(f"Bozuk Paket alındı, pas geçiliyor: {response}")
+                    return None
+                    
+                return {
+                    "Motor Devri (RPM)": parts[1],
+                    "Soğutma Sıvısı (°C)": parts[2],
+                    "Akü Voltajı (V)": parts[3],
+                    "Gaz Kelebeği (TPS) (%)": parts[4]
+                }
             raise ValueError("Beklenmeyen veri formatı veya eksik parametre")
         except Exception as e:
             error_msg = f"ECU Timeout veya Hatalı Veri | Detay: {str(e)} | Ham Veri: {raw_response}"
